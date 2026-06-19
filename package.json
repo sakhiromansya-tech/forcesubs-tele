@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build",
-    "start": "node server.ts"
+    "dev": "tsx bot.ts",
+    "start": "node bot.ts"
   },
   "keywords": [],
   "author": "",

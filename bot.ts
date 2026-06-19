@@ -1,7 +1,16 @@
 import { Telegraf, Markup } from "telegraf";
 import dotenv from "dotenv";
+import fs from "fs";
+const warnings = new Map<number, number>();
 
 dotenv.config();
+
+console.log("cwd =", process.cwd());
+
+const result = dotenv.config();
+console.log(result);
+
+console.log("TOKEN:", process.env.TELEGRAM_BOT_TOKEN);
 
 const bot = new Telegraf(
 process.env.TELEGRAM_BOT_TOKEN!
@@ -92,12 +101,50 @@ await checkMembership(userId);
 // belum join
 if(notJoined.length>0){
 
+const currentWarn =
+warnings.get(userId) || 0;
+
+const newWarn =
+currentWarn + 1;
+
+warnings.set(
+userId,
+newWarn
+);
+
 // hapus pesan user
+//try{
+//await ctx.deleteMessage();
+//}catch{}
+
+if(newWarn >= 3){
+
 try{
-await ctx.deleteMessage();
-}catch{}
 
+await ctx.restrictChatMember(
+userId,
+{
+permissions:{
+can_send_messages:false
+},
+until_date:
+Math.floor(Date.now()/1000)
++ 600
+}
+);
 
+await ctx.reply(
+`🔇 ${ctx.from.first_name} mute  karena sudah mencapai 3 pelanggaran, silakan join terlebih dahulu.`
+);
+
+}catch(err){
+
+console.log(err);
+
+}
+
+return;
+}
 // tombol join
 const buttons:any = [];
 
@@ -126,9 +173,11 @@ Markup.button.callback(
 const warning=
 await ctx.reply(
 
-`HALOO [${ctx.from.first_name}](tg://user?id=${userId})
+`⚠️ Peringatan ${newWarn}/3
 
-Join semua CH & LPM dulu yaa sebelum chat di sini.`,
+Halo [${ctx.from.first_name}](tg://user?id=${userId})
+
+Join semua CH & LPM terlebih dulu, Jiks mencapai 3 pelanggaran, kamu akan otomatis di-mute selama 10 menit.`,
 
 {
 parse_mode:"Markdown",
@@ -152,7 +201,7 @@ warning.message_id
 
 }catch{}
 
-},60000);
+},10000);
 
 return;
 }
@@ -218,3 +267,68 @@ console.log(
 }
 
 });
+bot.command("setup", async (ctx) => {
+
+  if (
+    ctx.chat.type !== "group" &&
+    ctx.chat.type !== "supergroup"
+  ) return;
+
+  const admin = await ctx.getChatMember(
+    ctx.from.id
+  );
+
+  if (
+    admin.status !== "administrator" &&
+    admin.status !== "creator"
+  ) {
+    return;
+  }
+
+  const args = ctx.message.text
+    .split(" ")
+    .slice(1);
+
+  if (args.length === 0) {
+    return ctx.reply(
+      "Contoh:\n/setup @channel1 @channel2"
+    );
+  }
+
+  const groups = JSON.parse(
+    fs.readFileSync(
+      "groups.json",
+      "utf8"
+    )
+  );
+
+  groups[String(ctx.chat.id)] = args;
+
+  fs.writeFileSync(
+    "groups.json",
+    JSON.stringify(
+      groups,
+      null,
+      2
+    )
+  );
+
+  return ctx.reply(
+    "✅ Channel berhasil disimpan!"
+  );
+
+});
+bot.telegram.getMe()
+.then(me => {
+  console.log("BOT:", me.username);
+})
+.catch(err => {
+  console.log("GETME ERROR:", err);
+});
+console.log("CHANNELS:", requiredChannels);
+
+bot.launch();
+bot.catch((err) => {
+  console.log("BOT ERROR:", err);
+});
+console.log("bot berjalan...");
