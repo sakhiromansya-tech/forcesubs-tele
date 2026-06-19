@@ -1,7 +1,9 @@
 import { Telegraf, Markup } from "telegraf";
 import dotenv from "dotenv";
 import fs from "fs";
+
 const warnings = new Map<number, number>();
+const cooldown = new Map<number, number>();
 
 dotenv.config();
 
@@ -101,6 +103,21 @@ await checkMembership(userId);
 // belum join
 if(notJoined.length>0){
 
+const lastWarn =
+cooldown.get(userId);
+
+if(
+lastWarn &&
+Date.now() - lastWarn < 60000
+){
+return;
+}
+
+cooldown.set(
+userId,
+Date.now()
+);
+
 const currentWarn =
 warnings.get(userId) || 0;
 
@@ -137,6 +154,9 @@ await ctx.reply(
 `🔇 ${ctx.from.first_name} mute  karena sudah mencapai 3 pelanggaran, silakan join terlebih dahulu.`
 );
 
+warnings.delete(userId);
+cooldown.delete(userId);
+
 }catch(err){
 
 console.log(err);
@@ -170,6 +190,8 @@ Markup.button.callback(
 
 ]);
 // tag user
+try {
+
 const warning=
 await ctx.reply(
 
@@ -177,7 +199,8 @@ await ctx.reply(
 
 Halo [${ctx.from.first_name}](tg://user?id=${userId})
 
-Join semua CH & LPM terlebih dulu, Jiks mencapai 3 pelanggaran, kamu akan otomatis di-mute selama 10 menit.`,
+Join semua CH & LPM terlebih dulu
+Jika mencapai 3 pelanggaran, kamu akan otomatis di-mute selama 10 menit.`,
 
 {
 parse_mode:"Markdown",
@@ -188,20 +211,31 @@ buttons
 
 );
 
+} catch(err) {
 
-// hapus warning 60 detik
-setTimeout(async()=>{
-
-try{
-
-await ctx.telegram.deleteMessage(
-chatId,
-warning.message_id
+console.log(
+"Gagal kirim pesan:",
+err
 );
 
-}catch{}
+return;
 
-},10000);
+}
+
+
+// hapus warning 60 detik
+// setTimeout(async()=>{
+
+// try{
+
+// await ctx.telegram.deleteMessage(
+// chatId,
+// warning.message_id
+// );
+
+// }catch{}
+
+// },10000);
 
 return;
 }
@@ -329,6 +363,7 @@ console.log("CHANNELS:", requiredChannels);
 
 bot.launch();
 bot.catch((err) => {
+
   console.log("BOT ERROR:", err);
 });
 console.log("bot berjalan...");
